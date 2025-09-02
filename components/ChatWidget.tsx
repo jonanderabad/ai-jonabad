@@ -20,7 +20,7 @@ export default function ChatWidget() {
     {
       role: "system",
       content:
-        "Eres el asistente de la web de Jon Abad – Mente Sintética. Responde con claridad y utilidad. Si preguntan por servicios, explica breve y ofrece CTA educada.",
+        "Eres el asistente de la web de Jon Ander Abad – Mente Sintética. Responde con claridad y utilidad. Si preguntan por servicios, explica breve y ofrece CTA educada.",
     },
     {
       role: "assistant",
