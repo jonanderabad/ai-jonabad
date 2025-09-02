@@ -1,10 +1,10 @@
-export default function Page() {
+export default function Home() {
   return (
-    <main className="min-h-dvh flex items-center justify-center p-8">
-      <div className="max-w-2xl text-center space-y-4">
-        <h1 className="text-3xl md:text-5xl font-bold">Jon Abad – Mente Sintética</h1>
-        <p className="opacity-80">Abre el botón 💬 abajo a la derecha para hablar con el asistente.</p>
-      </div>
-    </main>
-  );
+    <section className="bg-hero rounded-2xl p-8 md:p-12 border border-border shadow-soft">
+      <h1 className="text-4xl md:text-5xl font-semibold">Portfolio inteligente</h1>
+      <p className="mt-3 text-muted-foreground max-w-prose">
+        RAG con guardarraíl, demo en vivo y proyectos seleccionados.
+      </p>
+    </section>
+  )
 }
