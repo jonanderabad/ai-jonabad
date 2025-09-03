@@ -70,8 +70,9 @@ module.exports = {
 		},
 		backgroundImage: {
 			hero:
-				"radial-gradient(900px 520px at 20% -10%, hsl(var(--primary) / 0.12), transparent)," +
-				"radial-gradient(700px 400px at 100% -20%, hsl(var(--secondary) / 0.10), transparent)",
+				"radial-gradient(1200px_600px_at_50%_-10%,hsl(var(--primary)/0.12),transparent_60%)," +
+				"radial-gradient(1000px_500px_at_100%_10%,hsl(var(--secondary)/0.10),transparent_60%)," +
+				"radial-gradient(800px_400px_at_0%_10%,hsl(var(--accent)/0.10),transparent_60%)",
 		}
   	}
   },
