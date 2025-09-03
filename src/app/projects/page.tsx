@@ -1,3 +1,8 @@
+export const metadata = {
+  title: "Proyectos",
+  description: "Selección de proyectos y casos con IA aplicada.",
+};
+
 import { Card } from "@/components/ui/card"
 
 export default function Projects() {
