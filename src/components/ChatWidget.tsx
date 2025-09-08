@@ -13,7 +13,7 @@ const SUGGESTIONS = [
 ];
 
 export default function ChatWidget() {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(true);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([
@@ -110,28 +110,11 @@ export default function ChatWidget() {
   }
 
   return (
-    <>
-      {/* Botón flotante */}
-      <button
-        aria-label="Abrir chat"
-        onClick={() => setOpen((v) => !v)}
-        className="fixed bottom-6 right-6 z-50 rounded-full p-4 shadow-lg bg-black text-white hover:opacity-90 transition"
-      >
-        {open ? "✕" : "💬"}
-      </button>
-
+    <div className="w-full">
       {/* Panel del chat */}
-      {open && (
-        <div className="fixed bottom-20 right-6 z-50 w-[min(92vw,380px)] h-[560px] rounded-2xl shadow-2xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 flex flex-col overflow-hidden">
-          <div className="px-4 py-3 border-b border-neutral-200 dark:border-neutral-800 flex items-center justify-between">
+      <div className="w-full h-[560px] rounded-2xl border border-border bg-card shadow-sm flex flex-col overflow-hidden">
+          <div className="px-4 py-3 border-b border-border">
             <div className="font-semibold">Asistente · Mente Sintética</div>
-            <button
-              onClick={() => setOpen(false)}
-              className="text-sm opacity-70 hover:opacity-100"
-              aria-label="Cerrar"
-            >
-              Cerrar
-            </button>
           </div>
 
           {/* Sugerencias rápidas */}
@@ -141,7 +124,7 @@ export default function ChatWidget() {
                 key={s}
                 onClick={() => sendMessage(s)}
                 disabled={loading}
-                className="text-xs px-2 py-1 rounded-full border border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition"
+                className="text-xs px-2 py-1 rounded-full border border-border hover:bg-muted transition"
               >
                 {s}
               </button>
@@ -156,8 +139,8 @@ export default function ChatWidget() {
                   key={i}
                   className={`max-w-[85%] rounded-2xl px-3 py-2 text-sm leading-relaxed ${
                     m.role === "assistant"
-                      ? "bg-neutral-100 dark:bg-neutral-800 self-start"
-                      : "bg-black text-white dark:bg-white dark:text-black self-end ml-auto"
+                      ? "bg-muted self-start"
+                      : "bg-primary text-primary-foreground self-end ml-auto"
                   }`}
                 >
                   {m.content}
@@ -166,25 +149,24 @@ export default function ChatWidget() {
             <div ref={endRef} />
           </div>
 
-          <div className="p-3 border-t border-neutral-200 dark:border-neutral-800 flex gap-2">
+          <div className="p-3 border-t border-border flex gap-2">
             <input
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={onKeyDown}
-              className="flex-1 rounded-xl border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-3 py-2 text-sm outline-none"
+              className="flex-1 rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
               placeholder={loading ? "Generando respuesta..." : "Escribe tu mensaje..."}
               disabled={loading}
             />
             <button
               onClick={() => sendMessage()}
               disabled={loading || !input.trim()}
-              className="rounded-xl px-3 py-2 text-sm bg-black text-white dark:bg-white dark:text-black disabled:opacity-60"
+              className="rounded-xl px-3 py-2 text-sm bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
             >
               {loading ? "..." : "Enviar"}
             </button>
           </div>
         </div>
-      )}
-    </>
+    </div>
   );
 }
