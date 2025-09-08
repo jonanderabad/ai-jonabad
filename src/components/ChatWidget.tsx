@@ -13,7 +13,6 @@ const SUGGESTIONS = [
 ];
 
 export default function ChatWidget() {
-  const [open, setOpen] = useState(true);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([
@@ -50,7 +49,7 @@ export default function ChatWidget() {
   const endRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, open]);
+  }, [messages]);
 
   async function sendMessage(textArg?: string) {
     const text = (textArg ?? input).trim();
