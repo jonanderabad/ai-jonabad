@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import ClientChat from "./ClientChat";
 
 export const metadata: Metadata = {
   title: "Asistente",
@@ -18,13 +19,15 @@ export const metadata: Metadata = {
 };
 
 export default function AssistantPage() {
-  // Página server (SIN 'use client' y SIN hooks) para que compile limpia.
   return (
-    <section className="rounded-2xl p-8 md:p-12 border border-border shadow-soft bg-background">
+    <section
+      aria-label="Asistente"
+      className="mx-auto max-w-3xl rounded-2xl p-8 md:p-12 border border-border shadow-soft bg-background"
+    >
       <h1 className="text-2xl md:text-3xl font-semibold">Asistente</h1>
-      <p className="mt-3 text-muted-foreground max-w-prose">
-        Próximamente: chat con RAG y guardarraíl.
-      </p>
+      <div className="mt-6">
+        <ClientChat />
+      </div>
     </section>
   );
 }
