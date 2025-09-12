@@ -1,17 +1,20 @@
+// src/app/api/chat/route.ts
 import OpenAI from "openai";
-import { KB_DOCS, type KBDoc } from "@/data/kb";
+import { sanitizeUserText } from "@/lib/sanitize";
+import { topKByCosine, buildContext } from "@/lib/rag";
+import { rateLimit } from "@/lib/rateLimit";
 
 export const runtime = "edge";
 
-// Rate limit simple en memoria por IP (mejorable con Redis/Upstash)
-const WINDOW_MS = 60_000;
-const MAX_REQ = 10;
-const ipHits = new Map<string, number[]>();
+type ChatMessage = { role: "user" | "assistant" | "system"; content: string };
 
-// Umbral de on-topic (ajústalo si hace falta)
-const ON_TOPIC_THRESHOLD = 0.30;
+const MODEL = process.env.OPENAI_MODEL || "gpt-4o-mini";
+const EMB_MODEL = process.env.OPENAI_EMBED_MODEL || "text-embedding-3-small";
 
-// Mensaje de rechazo fuera de tema
+// Guardarraíl semántico (por umbral de similitud)
+const OFF_TOPIC = 0.23;
+const NEEDS_CLARIFY = 0.30;
+
 const OFF_TOPIC_REPLY =
   "Solo puedo responder a preguntas sobre *Jon Ander Abad* (perfil, proyectos, habilidades y forma de trabajar). Reformula tu pregunta, por favor.";
 
@@ -32,6 +35,16 @@ export async function POST(req: Request) {
       });
     }
 
+    // Rate limit (util modular)
+    const { ok, reset } = await rateLimit(getIp(req));
+    if (!ok) {
+      return new Response(
+        JSON.stringify({ error: `Rate limit excedido. Inténtalo en ${(reset / 1000).toFixed(0)}s.` }),
+        { status: 429, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    // Parse y saneo de entrada
     const body = await req.json().catch(() => ({}));
     const rawMessages = Array.isArray(body?.messages) ? body.messages : [];
     if (!rawMessages.length) {
@@ -41,90 +54,82 @@ export async function POST(req: Request) {
       });
     }
 
-    // Rate limit
-    const ip = getIp(req);
-    const now = Date.now();
-    const arr = ipHits.get(ip) ?? [];
-    const recent = arr.filter((t) => now - t < WINDOW_MS);
-    if (recent.length >= MAX_REQ) {
-      return new Response(JSON.stringify({ error: "Rate limit excedido. Inténtalo en un minuto." }), {
-        status: 429,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
-    recent.push(now);
-    ipHits.set(ip, recent);
-
-    // Asegura solo {role, content} y corta a los últimos 20
-    const messages = rawMessages
+    const messages: ChatMessage[] = rawMessages
       .map((m: any) => ({ role: m.role, content: m.content }))
       .slice(-20);
 
-    // Obtener la última consulta del usuario para RAG
-    const lastUserMessage = messages
-      .filter((m: any) => m.role === "user")
-      .pop()?.content || "";
+    const lastUser = messages.filter((m) => m.role === "user").pop();
+    const userText = sanitizeUserText(lastUser?.content || "");
+    if (!userText) {
+      return new Response(
+        JSON.stringify({ reply: { role: "assistant", content: "Necesito una pregunta o indicación clara." } }),
+        { status: 200, headers: { "Content-Type": "application/json" } }
+      );
+    }
 
-    // Buscar en base de conocimiento (búsqueda simple por texto)
-    const knowledgeResults = KB_DOCS.filter((doc: KBDoc) => 
-      doc.text.toLowerCase().includes(lastUserMessage.toLowerCase()) ||
-      doc.title.toLowerCase().includes(lastUserMessage.toLowerCase()) ||
-      doc.tags?.some((tag: string) => lastUserMessage.toLowerCase().includes(tag.toLowerCase()))
-    ).slice(0, 2);
-    
-    const context = knowledgeResults.length > 0 
-      ? knowledgeResults.map((doc: KBDoc) => `**${doc.title}**: ${doc.text}`).join("\n\n")
-      : "";
+    // Recuperación semántica con embeddings
+    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    let maxScore = 0;
+    let context = "";
 
-    // Verificar si la consulta es relevante (guardarraíl básico)
-    const isOnTopic = knowledgeResults.length > 0 || 
-      lastUserMessage.toLowerCase().includes("jon") ||
-      lastUserMessage.toLowerCase().includes("abad") ||
-      lastUserMessage.toLowerCase().includes("mente sintética") ||
-      lastUserMessage.toLowerCase().includes("portfolio") ||
-      lastUserMessage.toLowerCase().includes("servicios") ||
-      lastUserMessage.toLowerCase().includes("proyectos");
+    try {
+      const emb = await openai.embeddings.create({ model: EMB_MODEL, input: userText });
+      const vec = emb.data[0].embedding;
 
-    // Si está fuera de tema, devolver mensaje de rechazo
-    if (!isOnTopic && lastUserMessage.length > 10) {
-      return new Response(JSON.stringify({ 
-        reply: { 
-          role: "assistant", 
-          content: OFF_TOPIC_REPLY 
-        } 
-      }), {
+      const retrieved = topKByCosine(vec, 6);
+      maxScore = retrieved[0]?.score ?? 0;
+
+      if (maxScore >= NEEDS_CLARIFY) {
+        context = buildContext(retrieved, 1200);
+      }
+    } catch {
+      maxScore = 0;
+      context = "";
+    }
+
+    // Guardarraíl semántico por umbral
+    if (maxScore < OFF_TOPIC && userText.length > 10) {
+      return new Response(JSON.stringify({ reply: { role: "assistant", content: OFF_TOPIC_REPLY } }), {
         status: 200,
         headers: { "Content-Type": "application/json" },
       });
     }
 
-    // Reemplazar el system message con contexto RAG
+    if (maxScore >= OFF_TOPIC && maxScore < NEEDS_CLARIFY) {
+      const content =
+        "¿Podrías aclarar un poco tu pregunta para ajustarla al portfolio de *Jon Ander Abad*?\n" +
+        "Ejemplos: “Resume la arquitectura del chat”, “¿Qué stack usa la web?”, “¿Qué mejoras IA hay previstas?”.";
+      return new Response(JSON.stringify({ reply: { role: "assistant", content } }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    // System prompt con CONTEXTO (citas [KB: …] en el propio contexto)
     const systemWithContext = {
       role: "system" as const,
-      content: `
-Eres el asistente del portfolio de Jon Ander Abad.
-Reglas:
-- Responde SOLO a preguntas sobre Jon Ander Abad (bio, proyectos, habilidades, forma de trabajar).
-- Usa EXCLUSIVAMENTE el CONTEXTO proporcionado; si falta, dilo y pide que reformulen.
-- No inventes datos. Sé breve, claro y orientado a quien visita su portfolio.
-
-CONTEXTO:
-${context || "(No hay contexto relevante para esta pregunta)"}
-      `.trim(),
+      content: [
+        "Eres el asistente del portfolio de Jon Ander Abad.",
+        "Reglas:",
+        "- Responde SOLO si el tema es el portfolio (bio, proyectos, habilidades, arquitectura, forma de trabajo).",
+        "- Usa EXCLUSIVAMENTE el CONTEXTO cuando exista; si falta, dilo explícitamente.",
+        "- No inventes datos. Sé breve, claro y útil. Incluye citas tipo [KB: Título] cuando apliquen.",
+        "- Extensión recomendada: 4–8 frases. Usa bullets si mejora la legibilidad.",
+        "",
+        "CONTEXTO:",
+        context || "(No hay contexto relevante para esta pregunta).",
+      ].join("\n"),
     };
 
-    // Reemplazar system message y mantener solo conversación reciente
-    const messagesForAPI = [
+    const messagesForAPI: ChatMessage[] = [
       systemWithContext,
-      ...messages.filter((m: any) => m.role !== "system").slice(-10)
+      ...messages.filter((m) => m.role !== "system").slice(-10),
     ];
 
-    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-    const model = process.env.OPENAI_MODEL || "gpt-4o-mini";
-
     const completion = await openai.chat.completions.create({
-      model,
+      model: MODEL,
       temperature: 0.7,
+      max_tokens: 500,
       messages: messagesForAPI,
     });
 
@@ -134,9 +139,9 @@ ${context || "(No hay contexto relevante para esta pregunta)"}
       headers: { "Content-Type": "application/json" },
     });
   } catch (err: any) {
-    return new Response(
-      JSON.stringify({ error: err?.message ?? "Error inesperado" }),
-      { status: 500, headers: { "Content-Type": "application/json" } }
-    );
+    return new Response(JSON.stringify({ error: err?.message ?? "Error inesperado" }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" },
+    });
   }
 }
