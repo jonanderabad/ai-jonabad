@@ -8,7 +8,7 @@ export const runtime = "edge";
 
 type ChatMessage = { role: "user" | "assistant" | "system"; content: string };
 
-const MODEL = process.env.OPENAI_MODEL || "gpt-4o-mini";          // ← FIX aquí (con punto)
+const MODEL = process.env.OPENAI_MODEL || "gpt-4o-mini";
 const EMB_MODEL = process.env.OPENAI_EMBED_MODEL || "text-embedding-3-small";
 
 // Guardarraíl semántico
@@ -67,30 +67,26 @@ export async function POST(req: Request) {
       );
     }
 
-    // RAG con embeddings
+    // ---------- RAG ----------
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
     let maxScore = 0;
     let context = "";
-    let kbCites = "";
 
     try {
+      // 1) Embedding de la pregunta
       const emb = await openai.embeddings.create({ model: EMB_MODEL, input: userText });
       const vec = emb.data[0].embedding;
 
-      const retrieved = topKByCosine(vec, 6);
+      // 2) Recuperación (más recall: K=10)
+      const retrieved = topKByCosine(vec, 10);
       maxScore = retrieved[0]?.score ?? 0;
 
-      // SIEMPRE construimos contexto (mejora recall)
+      // 3) SIEMPRE construimos contexto (no añadimos citas en la respuesta)
       context = buildContext(retrieved, 1200);
-
-      // Citas forzadas (top 2 títulos)
-      const citeTitles = retrieved.slice(0, 2).map((r) => r.chunk.title);
-      kbCites = citeTitles.length ? citeTitles.map((t) => `[KB: ${t}]`).join(" · ") : "";
     } catch {
       maxScore = 0;
       context = "";
-      kbCites = "";
     }
 
     // Guardarraíl
@@ -111,7 +107,7 @@ export async function POST(req: Request) {
       });
     }
 
-    // System prompt con CONTEXTO
+    // Prompt con CONTEXTO (sin etiquetas ni fuentes en la salida)
     const systemWithContext = {
       role: "system" as const,
       content: [
@@ -140,8 +136,7 @@ export async function POST(req: Request) {
       messages: messagesForAPI,
     });
 
-    const base = completion.choices?.[0]?.message?.content?.trim() || "No hay respuesta.";
-    const content = kbCites ? `${base}\n\n${kbCites}` : base;
+    const content = completion.choices?.[0]?.message?.content?.trim() || "No hay respuesta.";
 
     return new Response(JSON.stringify({ reply: { role: "assistant", content } }), {
       status: 200,
