@@ -195,13 +195,17 @@ visión estratégica de liderazgo de proyectos y compromiso social orientado al 
     id: "proyectos-destacados-resumen",
     title: "Proyectos destacados — Resumen",
     text: `
+Resumen de proyectos en los que he trabajado (proyectos realizados / trabajos / casos de estudio):
 - Serie de Arte Digital Antropomórfico: fusión naturaleza/humanidad para piezas de alto impacto.
 - Modelo hiperrealista para publicidad: avatares consistentes orientados a campañas.
 - Introducción completa al Model Context Protocol (MCP): materiales técnicos y práctica.
 - Sistema modular de narrativas visuales: GPTs + generación de imágenes para experiencias interactivas.
 - Startup de contenido personalizado con IA: escalado de producción creativa con automatización inteligente.
     `.trim(),
-    tags: ["proyectos", "proyectos destacados", "resumen", "portfolio", "experiencias"]
+    tags: [
+      "proyectos", "proyectos destacados", "trabajos", "he trabajado", "en que proyectos has trabajado",
+      "casos de estudio", "cases", "portfolio", "portafolio", "experiencias", "realizados"
+    ]
   },
 
   /** ——— NUEVAS ENTRADAS TÉCNICAS (sept 2025) ——— */
