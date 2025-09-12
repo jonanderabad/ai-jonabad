@@ -8,10 +8,10 @@ export const runtime = "edge";
 
 type ChatMessage = { role: "user" | "assistant" | "system"; content: string };
 
-const MODEL = process.env.OPENAI_MODEL || "gpt-4o-mini";
+const MODEL = process.env.OPENAI_MODEL || "gpt-4o-mini";          // ← FIX aquí (con punto)
 const EMB_MODEL = process.env.OPENAI_EMBED_MODEL || "text-embedding-3-small";
 
-// Guardarraíl semántico (por umbral de similitud)
+// Guardarraíl semántico
 const OFF_TOPIC = 0.23;
 const NEEDS_CLARIFY = 0.30;
 
@@ -35,7 +35,7 @@ export async function POST(req: Request) {
       });
     }
 
-    // Rate limit (util modular)
+    // Rate limit
     const { ok, reset } = await rateLimit(getIp(req));
     if (!ok) {
       return new Response(
@@ -44,9 +44,9 @@ export async function POST(req: Request) {
       );
     }
 
-    // Parse y saneo de entrada
+    // Entrada
     const body = await req.json().catch(() => ({}));
-    const rawMessages = Array.isArray(body?.messages) ? body.messages : [];
+    const rawMessages = Array.isArray((body as any)?.messages) ? (body as any).messages : [];
     if (!rawMessages.length) {
       return new Response(JSON.stringify({ error: "Payload inválido. Se espera { messages: [...] }" }), {
         status: 400,
@@ -67,10 +67,12 @@ export async function POST(req: Request) {
       );
     }
 
-    // Recuperación semántica con embeddings
+    // RAG con embeddings
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
     let maxScore = 0;
     let context = "";
+    let kbCites = "";
 
     try {
       const emb = await openai.embeddings.create({ model: EMB_MODEL, input: userText });
@@ -79,15 +81,19 @@ export async function POST(req: Request) {
       const retrieved = topKByCosine(vec, 6);
       maxScore = retrieved[0]?.score ?? 0;
 
-      if (maxScore >= NEEDS_CLARIFY) {
-        context = buildContext(retrieved, 1200);
-      }
+      // SIEMPRE construimos contexto (mejora recall)
+      context = buildContext(retrieved, 1200);
+
+      // Citas forzadas (top 2 títulos)
+      const citeTitles = retrieved.slice(0, 2).map((r) => r.chunk.title);
+      kbCites = citeTitles.length ? citeTitles.map((t) => `[KB: ${t}]`).join(" · ") : "";
     } catch {
       maxScore = 0;
       context = "";
+      kbCites = "";
     }
 
-    // Guardarraíl semántico por umbral
+    // Guardarraíl
     if (maxScore < OFF_TOPIC && userText.length > 10) {
       return new Response(JSON.stringify({ reply: { role: "assistant", content: OFF_TOPIC_REPLY } }), {
         status: 200,
@@ -105,7 +111,7 @@ export async function POST(req: Request) {
       });
     }
 
-    // System prompt con CONTEXTO (citas [KB: …] en el propio contexto)
+    // System prompt con CONTEXTO
     const systemWithContext = {
       role: "system" as const,
       content: [
@@ -113,7 +119,7 @@ export async function POST(req: Request) {
         "Reglas:",
         "- Responde SOLO si el tema es el portfolio (bio, proyectos, habilidades, arquitectura, forma de trabajo).",
         "- Usa EXCLUSIVAMENTE el CONTEXTO cuando exista; si falta, dilo explícitamente.",
-        "- No inventes datos. Sé breve, claro y útil. Incluye citas tipo [KB: Título] cuando apliquen.",
+        "- No inventes datos. Sé breve, claro y útil.",
         "- Extensión recomendada: 4–8 frases. Usa bullets si mejora la legibilidad.",
         "",
         "CONTEXTO:",
@@ -126,6 +132,7 @@ export async function POST(req: Request) {
       ...messages.filter((m) => m.role !== "system").slice(-10),
     ];
 
+    // LLM
     const completion = await openai.chat.completions.create({
       model: MODEL,
       temperature: 0.7,
@@ -133,8 +140,10 @@ export async function POST(req: Request) {
       messages: messagesForAPI,
     });
 
-    const reply = completion.choices?.[0]?.message;
-    return new Response(JSON.stringify({ reply }), {
+    const base = completion.choices?.[0]?.message?.content?.trim() || "No hay respuesta.";
+    const content = kbCites ? `${base}\n\n${kbCites}` : base;
+
+    return new Response(JSON.stringify({ reply: { role: "assistant", content } }), {
       status: 200,
       headers: { "Content-Type": "application/json" },
     });
