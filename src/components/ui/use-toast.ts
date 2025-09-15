@@ -82,5 +82,5 @@ export function useToast() {
   };
 }
 
-// API opcional para lanzar toasts fuera de React:
+// API opcional fuera de React
 export const toast = (opts: ToastOpts) => addToast(opts);
