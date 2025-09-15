@@ -100,31 +100,39 @@ export async function POST(req: Request) {
       );
     }
 
-    // ---------- ENTRADA ----------
-    const body = await req.json().catch(() => ({}));
-    const rawMessages = Array.isArray((body as any)?.messages)
-      ? (body as any).messages
-      : [];
-    if (!rawMessages.length) {
+    // ---------- ENTRADA (soporta dos formatos) ----------
+    const body = await req.json().catch(() => ({} as any));
+
+    let incomingMessages: ChatMessage[] = [];
+    if (Array.isArray(body?.messages)) {
+      // Formato: { messages: [...] }
+      incomingMessages = body.messages
+        .map((m: any) => ({ role: m.role, content: m.content }))
+        .slice(-20);
+    } else if (typeof body?.message === "string") {
+      // Formato: { message: "...", history: [...] }
+      const history: ChatMessage[] = Array.isArray(body?.history)
+        ? body.history.map((m: any) => ({ role: m.role, content: m.content })).slice(-20)
+        : [];
+      incomingMessages = [...history, { role: "user", content: body.message }];
+    } else {
       return new Response(
-        JSON.stringify({ error: "Payload inválido. Se espera { messages: [...] }" }),
+        JSON.stringify({
+          error:
+            "Payload inválido. Usa { messages:[...] } o { message:'...', history:[...] }",
+        }),
         { status: 400, headers: { "Content-Type": "application/json" } }
       );
     }
 
-    const messages: ChatMessage[] = rawMessages
-      .map((m: any) => ({ role: m.role, content: m.content }))
-      .slice(-20);
-
-    const lastUser = messages.filter((m) => m.role === "user").pop();
+    // Último input de usuario (sanitizado)
+    const lastUser = incomingMessages.filter((m) => m.role === "user").pop();
     const userText = sanitizeUserText(lastUser?.content || "");
     if (!userText) {
-      return new Response(
-        JSON.stringify({
-          reply: { role: "assistant", content: "Necesito una pregunta o indicación clara." },
-        }),
-        { status: 200, headers: { "Content-Type": "application/json" } }
-      );
+      return new Response("Necesito una pregunta o indicación clara.", {
+        status: 200,
+        headers: { "Content-Type": "text/plain; charset=utf-8" },
+      });
     }
 
     // ---------- RAG ----------
@@ -154,25 +162,26 @@ export async function POST(req: Request) {
 
     // ---------- GUARDARRAÍL ----------
     if (maxScore < OFF_TOPIC && userText.length > 10) {
-      return new Response(
-        JSON.stringify({ reply: { role: "assistant", content: OFF_TOPIC_REPLY } }),
-        { status: 200, headers: { "Content-Type": "application/json" } }
-      );
+      // Respuesta directa (texto plano) para integrarse con el lector de stream del cliente
+      return new Response(OFF_TOPIC_REPLY, {
+        status: 200,
+        headers: { "Content-Type": "text/plain; charset=utf-8" },
+      });
     }
 
     if (maxScore >= OFF_TOPIC && maxScore < NEEDS_CLARIFY) {
-      const content =
+      const clarify =
         "¿Podrías aclarar un poco tu pregunta para ajustarla al portfolio de *Jon Ander Abad*?\n" +
         "Ejemplos: “Resume la arquitectura del chat”, “¿Qué stack usa la web?”, “¿Qué mejoras IA hay previstas?”.";
-      return new Response(JSON.stringify({ reply: { role: "assistant", content } }), {
+      return new Response(clarify, {
         status: 200,
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "text/plain; charset=utf-8" },
       });
     }
 
     // ---------- PROMPT CON CONTEXTO ----------
-    const systemWithContext = {
-      role: "system" as const,
+    const systemWithContext: ChatMessage = {
+      role: "system",
       content: [
         "Eres el asistente del portfolio de Jon Ander Abad.",
         "Reglas:",
@@ -186,25 +195,52 @@ export async function POST(req: Request) {
       ].join("\n"),
     };
 
+    // Conserva las últimas 10 (sin systems previos del cliente)
     const messagesForAPI: ChatMessage[] = [
       systemWithContext,
-      ...messages.filter((m) => m.role !== "system").slice(-10),
+      ...incomingMessages.filter((m) => m.role !== "system").slice(-10),
     ];
 
-    // ---------- LLM ----------
-    const completion = await openai.chat.completions.create({
-      model: MODEL,
-      temperature: 0.7,
-      max_tokens: 500,
-      messages: messagesForAPI,
+    // ---------- STREAMING A CLIENTE ----------
+    const encoder = new TextEncoder();
+
+    const stream = new ReadableStream({
+      async start(controller) {
+        try {
+          const completion = await openai.chat.completions.create({
+            model: MODEL,
+            temperature: 0.7,
+            max_tokens: 500,
+            stream: true,
+            messages: messagesForAPI,
+          });
+
+          for await (const part of completion) {
+            const delta = part.choices?.[0]?.delta?.content ?? "";
+            if (delta) {
+              controller.enqueue(encoder.encode(delta));
+            }
+          }
+        } catch (err) {
+          // Emitimos un mensaje corto de error para que el cliente no se quede vacío
+          controller.enqueue(
+            encoder.encode("\n\n[Error] Ha ocurrido un problema generando la respuesta.")
+          );
+          // Señalamos error para cerrar correctamente el stream
+          try { controller.error(err as any); } catch {}
+        } finally {
+          try { controller.close(); } catch {}
+        }
+      },
     });
 
-    const content =
-      completion.choices?.[0]?.message?.content?.trim() || "No hay respuesta.";
-
-    return new Response(JSON.stringify({ reply: { role: "assistant", content } }), {
+    return new Response(stream, {
       status: 200,
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "text/plain; charset=utf-8",
+        // Evita buffering/proxy y transforma en tiempo real
+        "Cache-Control": "no-cache, no-transform",
+      },
     });
   } catch (err: any) {
     return new Response(
