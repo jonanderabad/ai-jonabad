@@ -207,4 +207,68 @@ Resumen de proyectos en los que he trabajado (proyectos realizados / trabajos / 
       "casos de estudio", "cases", "portfolio", "portafolio", "experiencias", "realizados"
     ]
   },
+
+  /** ——— NUEVAS ENTRADAS TÉCNICAS (sept 2025) ——— */
+  {
+    id: "edge-streaming-readablestream",
+    title: "Edge Streaming en Next.js (ReadableStream → UI)",
+    text: `
+Cómo servimos respuestas por streaming desde el runtime Edge hacia la UI:
+- Endpoint: Route Handler en Edge que construye un ReadableStream y emite chunks.
+- Cliente: la UI consume progresivamente los chunks y actualiza el chat al vuelo.
+- UX: "Detener" usa AbortController; el servidor debe respetar la cancelación.
+- Beneficio: latencia percibida menor; respuesta visible mientras se genera.
+Sinónimos: streaming, chunks, flujo incremental, respuesta parcial.
+    `.trim(),
+    tags: ["edge", "streaming", "ReadableStream", "nextjs", "app router", "stream", "chunks", "abort", "latencia"]
+  },
+  {
+    id: "rate-limit-supabase-rl_hit",
+    title: "Rate limiting con Supabase (RPC rl_hit y Retry-After/429)",
+    text: `
+Rate limiting centralizado con Supabase:
+- RPC pública rl_hit(key, limit, window) devuelve estado y contadores.
+- Backend (Edge): si excede, responde 429 con Retry-After y X-RateLimit-*.
+- UI: lee Retry-After, muestra countdown y deshabilita input/envío.
+Ventajas: control global, trazabilidad y costes contenidos.
+    `.trim(),
+    tags: ["supabase", "rate limit", "429", "retry-after", "rpc", "rl_hit", "throttle", "x-ratelimit"]
+  },
+  {
+    id: "guardrails-umbrales",
+    title: "Guardarraíl semántico: ON_TOPIC / NEEDS_CLARIFY / OFF_TOPIC",
+    text: `
+Reglas de decisión deterministas:
+- OFF_TOPIC si onTopic < 0.23
+- NEEDS_CLARIFY si onTopic ≥ 0.23 y needsClarify ≥ 0.30
+- ON_TOPIC en el resto
+Objetivo: filtrar fuera de ámbito o ambigüedad antes de invocar el modelo; los umbrales se ajustan con tests.
+    `.trim(),
+    tags: ["guardrails", "umbral", "off_topic 0.23", "needs_clarify 0.30", "clasificación", "seguridad"]
+  },
+  {
+    id: "rag-flujo-embeddings",
+    title: "RAG del asistente: ingest, embeddings y top-K por coseno",
+    text: `
+Flujo RAG:
+- Fuente: src/data/kb.ts (entradas con title/tags/text).
+- Ingest: scripts/ingest.ts genera src/data/kb_embeddings.json (dim y chunks).
+- Recuperación: topK por similitud coseno (queryVec vs embedding de cada chunk).
+- Contexto: buildContext compone bloques hasta un presupuesto de tokens aproximado.
+Meta: respuestas más precisas y citables.
+    `.trim(),
+    tags: ["rag", "embeddings", "ingest", "cosine", "kb_embeddings.json", "contexto", "top-k"]
+  },
+  {
+    id: "tests-cobertura-baseline",
+    title: "Tests unitarios y cobertura (baseline con Vitest v8)",
+    text: `
+Tests unitarios mínimos para proteger el core:
+- Guardrails: reglas ON_TOPIC/NEEDS_CLARIFY/OFF_TOPIC.
+- RAG: similitud coseno y ranking determinista.
+- Sanitización: stripping de scripts/atributos, normalización y recorte por maxLen.
+Cobertura baseline sobre src/lib con provider v8; utils.ts excluido temporalmente (añadiremos test luego).
+    `.trim(),
+    tags: ["vitest", "coverage", "baseline", "unit tests", "rag", "guardrails", "sanitize"]
+  },
 ];
