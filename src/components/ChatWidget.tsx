@@ -9,9 +9,9 @@ type ChatMessage = { role: Role; content: string };
 
 const STORAGE_KEY = "ms_chat_history_v1";
 const SUGGESTIONS = [
-  "¿Qué puedes hacer por mí?",
-  "Explícame el proyecto en 2 frases.",
-  "Quiero una demo de capacidades.",
+  "Portfolio de Jon Abad.",
+  "Proyectos destacados.",
+  "Flujo RAG del asistente.",
 ];
 
 export default function ChatWidget() {
