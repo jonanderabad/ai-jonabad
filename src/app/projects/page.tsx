@@ -1,21 +1,22 @@
+// src/app/projects/page.tsx
 export const metadata = {
   title: "Proyectos",
   description: "Selección de proyectos y casos con IA aplicada.",
 };
 
-import { Card } from "@/components/ui/card"
+import { projects } from "@/data/projects";
+import { ProjectCard } from "@/components/projects/ProjectCard";
 
-export default function Projects() {
+export default function ProjectsPage() {
   return (
-    <div className="grid gap-6 sm:grid-cols-2">
-      <Card className="rounded-2xl border border-border p-5 shadow-soft">
-        <h3 className="text-xl font-medium">Máquina de Cuentos</h3>
-        <p className="text-muted-foreground">Pipeline multi-agente para cuentos infantiles.</p>
-      </Card>
-      <Card className="rounded-2xl border border-border p-5 shadow-soft">
-        <h3 className="text-xl font-medium">AI-JonAbad Assistant</h3>
-        <p className="text-muted-foreground">Chat con RAG y guardarraíl sobre Jon Abad.</p>
-      </Card>
-    </div>
-  )
+    <main className="container mx-auto py-12">
+      <h1 className="text-3xl md:text-4xl font-semibold mb-8">Proyectos</h1>
+
+      <section className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        {projects.map((p) => (
+          <ProjectCard key={p.id} project={p} />
+        ))}
+      </section>
+    </main>
+  );
 }
