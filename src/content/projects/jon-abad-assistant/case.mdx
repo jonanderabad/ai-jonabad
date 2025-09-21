@@ -1,0 +1,26 @@
+export const metadata = {
+  title: "Caso: Jon Abad Assistant",
+  description: "Asistente en producción con RAG, streaming y guardarraíles."
+};
+
+# Caso: Jon Abad Assistant
+
+**Objetivo.** Llevar un asistente real a producción con latencia P95 sub-segundo, garantizando calidad de recuperación (RAG) y seguridad (guardarraíles).
+
+## Contexto
+- Streaming Edge → UI con control de cancelación.
+- RAG con embeddings (top-K=10) y KB curada.
+- Rate limit por IP con Supabase RPC (429 + Retry-After).
+
+## Enfoque
+1. Saneado de entradas y guardarraíl semántico.
+2. Construcción de contexto con re-ranking y citación.
+3. Medición continua: P95, recall@k, 4xx/5xx y satisfacción.
+
+## Resultados
+- P95 ≈ 950 ms en producción (Edge).
+- Cobertura RAG estable y trazable.
+- UX de bloqueo/contador para 429.
+
+## Stack
+Next.js (Edge), OpenAI SDK, Supabase (RPC), Tailwind/shadcn.

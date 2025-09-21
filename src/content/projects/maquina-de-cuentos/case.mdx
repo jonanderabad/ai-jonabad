@@ -1,0 +1,26 @@
+export const metadata = {
+  title: "Caso: Máquina de Cuentos",
+  description: "Pipeline multi-agente para narrativa y arte consistente con Flux/ComfyUI."
+};
+
+# Caso: Máquina de Cuentos
+
+**Objetivo.** Generar cuentos con guion por escenas y arte visual consistente.
+
+## Pipeline
+- Texto → prompts por escena → imágenes controladas.
+- Semillas fijas y LoRA para continuidad de estilo/personaje.
+- Operable local o con GPU externas; integración con Flux Playground.
+
+## Enfoque
+1. Diseño de estructura (capítulos → escenas → prompts).
+2. Control de variabilidad (semillas, CFG, LoRA).
+3. Curación iterativa de assets y revisión humana.
+
+## Resultados
+- Coherencia narrativa y visual por escena.
+- Reducción de re-renders por control de semilla.
+- Fácil exportado a storyboards.
+
+## Stack
+Flux Kontext, ComfyUI, PyTorch.
