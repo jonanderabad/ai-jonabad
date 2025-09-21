@@ -271,4 +271,29 @@ Cobertura baseline sobre src/lib con provider v8; utils.ts excluido temporalment
     `.trim(),
     tags: ["vitest", "coverage", "baseline", "unit tests", "rag", "guardrails", "sanitize"]
   },
+  {
+    id: "envs::001",
+    title: "Variables de entorno del proyecto — scope, uso y seguridad",
+    tags: ["env", "environment variables", "process.env", "config", "seguridad", "SEO", "Supabase", "OpenAI"],
+    text: `
+  Server-only (NO en cliente):
+  • OPENAI_API_KEY → API Chat e ingest de embeddings (OpenAI SDK).
+  • OPENAI_EMBED_MODEL → Ingest y RAG (p. ej. text-embedding-3-small).
+  • SUPABASE_URL → RPC rate limit (public.rl_hit) desde Edge/Server.
+  • SUPABASE_SERVICE_ROLE_KEY → RPC con permisos; solo en server/edge, nunca en cliente.
+  • OPENAI_MODEL (opcional) → Modelo por defecto para chat en API.
+  
+  Públicas:
+  • NEXT_PUBLIC_SITE_URL → SEO (robots.ts, sitemap.ts). Safe para cliente.
+  
+  Ubicaciones de uso (código):
+  • API Chat (Edge): usa OPENAI_API_KEY, OPENAI_MODEL, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY.
+  • RAG/ingest: usa OPENAI_API_KEY y OPENAI_EMBED_MODEL para generar kb_embeddings.json.
+  • SEO: robots.ts y sitemap.ts usan NEXT_PUBLIC_SITE_URL.
+  
+  Notas:
+  • Nunca exponer SUPABASE_SERVICE_ROLE_KEY ni OPENAI_* al cliente.
+  • Si falta algún valor, el build o la API fallarán; validar en Preview antes de prod.
+  `
+  }  
 ];
