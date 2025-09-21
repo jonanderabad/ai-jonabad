@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { loadCase } from "./cases"; // <- loader que importa el MDX según el id
 
 type Params = { id: string };
 
@@ -37,9 +38,12 @@ export function generateMetadata({ params }: { params: Params }) {
   };
 }
 
-export default function ProjectDetail({ params }: { params: Params }) {
+export default async function ProjectDetail({ params }: { params: Params }) {
   const p = projects.find((x) => x.id === params.id);
   if (!p) notFound();
+
+  // Importa el componente MDX del caso si existe para este id.
+  const Case = await loadCase(params.id);
 
   return (
     <main className="container mx-auto max-w-4xl py-12 space-y-8">
@@ -57,14 +61,14 @@ export default function ProjectDetail({ params }: { params: Params }) {
         </div>
       </header>
 
-      {/* Si la imagen de portada aún no está subida, simplemente no se mostrará.
-         No rompe la página; cuando subas /public/projects/<id>/cover.webp aparecerá. */}
+      {/* Cover: mantiene la estética del detalle */}
       {p.cover && (
         <div className="relative aspect-video rounded-2xl overflow-hidden border">
           <Image src={p.cover} alt={p.alt} fill className="object-cover" />
         </div>
       )}
 
+      {/* Highlights tal y como los tenías */}
       {p.highlights?.length ? (
         <section className="space-y-2">
           <h2 className="text-xl font-medium">Highlights</h2>
@@ -109,17 +113,28 @@ export default function ProjectDetail({ params }: { params: Params }) {
                     Repo
                   </a>
                 )}
-                {/* Solo mostramos "Caso" si es distinto a esta misma ruta */}
-                {p.links.case &&
-                  p.links.case !== `/projects/${p.id}` && (
-                    <Link className="underline" href={p.links.case}>
-                      Caso
-                    </Link>
-                  )}
+                {/* El enlace “Caso” ahora suele apuntar a /projects/<id>#case */}
+                {p.links.case && p.links.case !== `/projects/${p.id}` && (
+                  <Link className="underline" href={p.links.case}>
+                    Caso
+                  </Link>
+                )}
               </div>
             )}
           </CardContent>
         </Card>
+      )}
+
+      {/* Sección de Caso embebida (MDX), mantiene la UI del detalle */}
+      {Case && (
+        <section
+          id="case"
+          className="mt-12 rounded-2xl border border-border bg-background p-8 md:p-12 shadow-soft"
+        >
+          <div className="prose prose-zinc dark:prose-invert max-w-none">
+            <Case />
+          </div>
+        </section>
       )}
     </main>
   );
