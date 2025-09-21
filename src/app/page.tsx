@@ -1,4 +1,6 @@
+// src/app/page.tsx
 import Hero from "@/components/Hero";
+import { ProjectsPreview } from "@/components/projects/ProjectsPreview";
 
 export default function Home() {
   return (
@@ -15,6 +17,9 @@ export default function Home() {
           RAG con guardarraíl, demo en vivo y proyectos seleccionados.
         </p>
       </section>
+
+      {/* Proyectos destacados (featured) */}
+      <ProjectsPreview />
     </main>
   );
 }
